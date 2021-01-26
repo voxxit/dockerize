@@ -1,0 +1,37 @@
+on:
+  push:
+    # Sequence of patterns matched against refs/tags
+    tags:
+    - '*'
+
+name: Release
+
+jobs:
+  build:
+    name: Build & upload release assets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get the version
+        id: get_version
+        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Build everything
+        run: docker run --rm -v "${PWD}":/go/src/github.com/voxxit/dockerize -w /go/src/github.com/voxxit/dockerize golang:1.13 bash -c "make deps && make release"
+      - name: Create release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.get_version.outputs.VERSION }}
+          release_name: Release ${{ steps.get_version.outputs.VERSION }}
+          draft: false
+          prerelease: false
+      - name: Upload assets to release
+        id: upload-release-asset 
+        uses: AButler/upload-release-assets@v2.0
+        with:
+          files: 'dockerize-*.tar.gz'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          release-tag: ${{ steps.get_version.outputs.VERSION }}
